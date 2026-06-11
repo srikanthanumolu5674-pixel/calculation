@@ -7,7 +7,7 @@ This is a small sample Spring Boot project for calculator APIs. It has no databa
 - Java: 17
 - Build Tool: Maven
 - Spring Boot: 3.3.5
-  test pipeline
+  test pipelines
 
 ## How to Run
 
