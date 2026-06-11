@@ -1,33 +1,45 @@
-name: Build and Deploy Java App to Azure
+name: Build and Deploy to Azure VM
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-          cache: maven
 
-      - name: Build with Maven
+      - name: Build JAR
         run: mvn clean package -DskipTests
-        working-directory: calculation-api-project
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
+      - name: Rename JAR
+        run: cp target/*.jar app.jar
+
+      - name: Copy JAR to VM
+        uses: appleboy/scp-action@v0.1.7
         with:
-          app-name: calculation1
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: calculation-api-project/target/*.jar
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}
+          source: app.jar
+          target: /home/srikanth/app
+
+      - name: Restart App
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}
+          script: |
+            sudo systemctl restart myapp
+            sudo systemctl status myapp --no-pager
