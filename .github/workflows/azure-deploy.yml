@@ -17,13 +17,30 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: '17'
 
-      - name: Build JAR
-        run: mvn clean package -DskipTests
+      - name: Verify Repository Structure
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Listing files:"
+          ls -R
+          echo "Finding pom.xml:"
+          find . -name pom.xml
 
-      - name: Rename JAR
-        run: cp target/*.jar app.jar
+      - name: Build Maven Project (Auto-detect pom.xml location)
+        run: |
+          POM_PATH=$(find . -name pom.xml | head -n 1)
+          echo "Found pom.xml at: $POM_PATH"
+          
+          PROJECT_DIR=$(dirname "$POM_PATH")
+          echo "Switching to project directory: $PROJECT_DIR"
+          
+          cd "$PROJECT_DIR"
+          mvn clean package -DskipTests
+          
+          echo "Copying JAR file..."
+          cp target/*.jar $GITHUB_WORKSPACE/app.jar
 
       - name: Copy JAR to VM
         uses: appleboy/scp-action@v0.1.7
@@ -31,15 +48,18 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
           password: ${{ secrets.VM_PASSWORD }}
-          source: app.jar
-          target: /home/srikanth/app
+          source: "app.jar"
+          target: "/home/srikanth/app"
 
-      - name: Restart App
+      - name: Start Application on VM
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
           password: ${{ secrets.VM_PASSWORD }}
           script: |
-            sudo systemctl restart myapp
-            sudo systemctl status myapp --no-pager
+            pkill -f 'java -jar' || true
+            cd /home/srikanth/app
+            nohup java -jar app.jar > app.log 2>&1 &
+            sleep 10
+            ps -ef | grep java
